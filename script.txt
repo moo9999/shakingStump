@@ -1,78 +1,80 @@
--- Roblox Bee Swarm Simulator Teleport Script
--- pastebin / executor friendly
-
+-- Roblox Bee Swarm Simulator Improved Teleport Script
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
 -- ==================== CONFIGURATION ====================
-local TARGET_ITEM_NAME = "Bloom Shaker" -- The exact name or partial name of the item/token
-local TARGET_FIELD_NAME = "Sunflower Field" -- The exact name of the field's workspace part
+local TARGET_TOKEN_DECAL_ID = "bloom" -- Looks for 'bloom' inside the token texture name
+local TARGET_FIELD_NAME = "Sunflower Field" -- The field to go to afterward
+local SPEED = 150 -- Safe speed to bypass anti-cheat kicks
 -- =======================================================
 
--- Function to safely teleport the character
-local function teleportTo(position)
-    if HumanoidRootPart then
-        HumanoidRootPart.CFrame = CFrame.new(position) + Vector3.new(0, 3, 0) -- Teleports slightly above to prevent clipping
-    end
+-- Safe Anti-Cheat Bypass Movement Function
+local function safeMoveTo(targetPosition)
+    if not HumanoidRootPart then return end
+    
+    local distance = (HumanoidRootPart.Position - targetPosition).Magnitude
+    local duration = distance / SPEED
+    
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(HumanoidRootPart, tweenInfo, {CFrame = CFrame.new(targetPosition) + Vector3.new(0, 3, 0)})
+    
+    tween:Play()
+    tween.Completed:Wait()
 end
 
--- 1. Find and Teleport to the Specific Item
-local function teleportToItem()
-    local closestItem = nil
-    local shortestDistance = math.huge
-
-    -- Bee Swarm Simulator usually stores spawned items/tokens in game.Workspace.Collectibles
+-- 1. Scan Collectibles for Bloom Tokens
+local function findAndCollectToken()
     local collectibles = game.Workspace:FindFirstChild("Collectibles")
+    if not collectibles then 
+        warn("Collectibles folder not found!")
+        return false 
+    end
     
-    if collectibles then
-        for _, item in pairs(collectibles:GetChildren()) do
-            -- Checks if the item matches your target name (e.g., "Token" or a specific treat)
-            if item.Name:round():find(TARGET_ITEM_NAME) or item:FindFirstChild(TARGET_ITEM_NAME) or item.Name == TARGET_ITEM_NAME then
-                local itemPosition = item:GetPivot().Position
-                local distance = (HumanoidRootPart.Position - itemPosition).Magnitude
-                
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestItem = item
-                end
+    local targetToken = nil
+    
+    -- Loop through active tokens on the map
+    for _, token in pairs(collectibles:GetChildren()) do
+        -- Bee Swarm tokens hide their identity in a Decal inside the part
+        local frontDecal = token:FindFirstChild("FrontDecal") or token:FindFirstChildOfClass("Decal")
+        
+        if frontDecal and frontDecal.Texture then
+            -- Check if the texture ID contains "bloom" or match identifiers
+            if string.find(string.lower(frontDecal.Texture), string.lower(TARGET_TOKEN_DECAL_ID)) then
+                targetToken = token
+                break
             end
         end
     end
-
-    if closestItem then
-        print("Teleporting to item: " .. closestItem.Name)
-        teleportTo(closestItem:GetPivot().Position)
-        task.wait(0.5) -- Short pause to ensure the game registers the item pickup
+    
+    if targetToken then
+        print("Found Bloom Shaker Token! Moving...")
+        safeMoveTo(targetToken.Position)
+        task.wait(0.3) -- Give the server a moment to register pickup
+        return true
     else
-        warn("Target item '" .. TARGET_ITEM_NAME .. "' not found nearby!")
+        warn("No Bloom Shaker tokens found on the map right now.")
+        return false
     end
 end
 
--- 2. Teleport to the Specific Field
-local function teleportToField()
-    -- Bee Swarm Simulator stores fields under game.Workspace.FlowerZones
+-- 2. Move to Field
+local function moveToField()
     local flowerZones = game.Workspace:FindFirstChild("FlowerZones")
-    
     if flowerZones then
         local targetField = flowerZones:FindFirstChild(TARGET_FIELD_NAME)
         if targetField then
-            print("Teleporting to field: " .. TARGET_FIELD_NAME)
-            teleportTo(targetField.Position)
+            print("Moving to field: " .. TARGET_FIELD_NAME)
+            safeMoveTo(targetField.Position)
         else
-            warn("Field '" .. TARGET_FIELD_NAME .. "' not found in FlowerZones!")
+            warn("Field not found: " .. TARGET_FIELD_NAME)
         end
-    else
-        warn("FlowerZones folder not found in Workspace!")
     end
 end
 
--- Execution Sequence
-local function runSequence()
-    teleportToItem()
-    task.wait(0.5) -- Wait a split second between tasks
-    teleportToField()
-end
-
-runSequence()
+-- Execution
+local tokenFound = findAndCollectToken()
+task.wait(0.5)
+moveToField()
