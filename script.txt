@@ -7,7 +7,7 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
 -- ==================== CONFIGURATION ====================
-local TARGET_ITEM_NAME = "Token" -- The exact name or partial name of the item/token
+local TARGET_ITEM_NAME = "Bloom Shaker" -- The exact name or partial name of the item/token
 local TARGET_FIELD_NAME = "Sunflower Field" -- The exact name of the field's workspace part
 -- =======================================================
 
