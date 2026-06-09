@@ -1,4 +1,4 @@
--- BSS Teleport Chain, Hotbar Emulation, & Anti-Lag Optimizer (Zero-Delay Mode)
+-- BSS Teleport Chain, Hotbar Emulation, & Anti-Lag Optimizer (SYNCED MODE)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -15,7 +15,10 @@ local TELEPORT_TWO_ENABLED = true
 local STAGE_TWO_COORDS = Vector3.new(-444.8290100097656, 121.40953063964844, 353.9067077636719) 
 local RETURN_FIELD_NAME = "Sunflower Field"
 
--- HOTBAR SETTING: Keys tied to your target slots
+-- SYNC_DELAY: Essential wait time to ensure server confirms you are in the field 
+-- before the game client processes the 'use item' command.
+local SYNC_DELAY = 0.5 
+
 local HOTBAR_KEYS = {Enum.KeyCode.Two, Enum.KeyCode.Three}
 -- =======================================================
 
@@ -70,18 +73,22 @@ local function fireHotbarSequence()
         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
         task.wait(0.05)
         VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
-        task.wait(0.1) -- Minimal mechanical safety gap
+        task.wait(0.1) 
     end
 end
 
--- FIELD ROUTING & DEPLOYMENT (ZERO DELAY)
+-- FIELD ROUTING & DEPLOYMENT (WITH SYNC BUFFER)
 local function teleportAndDeploy()
     local flowerZones = Workspace:FindFirstChild("FlowerZones")
     if flowerZones then
         local fieldPart = flowerZones:FindFirstChild(RETURN_FIELD_NAME)
         if fieldPart then
             invokeNetworkBypass(CFrame.new(fieldPart.Position + Vector3.new(0, 3, 0)))
-            -- Removed Field_Landing_Delay
+            
+            -- Small sync delay to ensure the server registers the location change
+            -- before we attempt to fire items that depend on being "in-field"
+            task.wait(SYNC_DELAY) 
+            
             fireHotbarSequence()
         end
     end
